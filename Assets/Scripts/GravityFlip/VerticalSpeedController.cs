@@ -9,18 +9,32 @@ namespace Gravity
     [RequireComponent(typeof(Rigidbody2D), typeof(Collider2D))]
     public class VerticalSpeedController : MonoBehaviour
     {
+        [Header("Raycast Settings")]
+        [SerializeField] private float rayDistance;
+        [SerializeField] private LayerMask groundLayer;
+        
+        [Header("Kinematic Settings")]
+        [SerializeField] private KinematicFunction kinematicFunctions = KinematicFunction.Exponential;
         [SerializeField] private float playerSpeed = 1f;
+        [SerializeField] private float minSpeed = 1f;
+        [SerializeField] private float maxSpeed = 10f;
+        [SerializeField] private float timeToReachMaxSpeed = 1f;
+        [SerializeField] private float smootherConstant = 1f;
+        private Func<float,float,float,float,float,float> _kinematicFunction;
+        
+        [Header("Debug Settings")]
+        [SerializeField] private bool manualGravityFlip = false;
+        
+        // direction of player vertical movement
+        private GravityDirection _gravityDirection = GravityDirection.Down;
+        // local rigidbody
         private Rigidbody2D _rigidbody;
+        // Input System
         private InputController _playerInputSystem;
         private InputAction _jumpControl;
+        // local time
         private float _time = 0f;
-        [SerializeField] private LayerMask groundLayer;
-        [SerializeField] private float rayDist = 1.5f;
-        [SerializeField] private KinematicFunction kinematicFunctions = KinematicFunction.Tangential;
-        [SerializeField] private float functionMultiplier = 1f;
-        [SerializeField] private bool manualGravityFlip = false;
-        private bool _isGravityFlipped = false;
-        private Func<float,float,bool,float> _kinematicFunction;
+        
 
         private void Awake()
         {
@@ -49,78 +63,82 @@ namespace Gravity
 
         private void OnValidate()
         {
+            // ensure that kinematic function is updated in editor when changed
             GetKinematicFunction();
         }
         
         private void GetKinematicFunction()
         {
+            // convert enum to function
             _kinematicFunction = kinematicFunctions switch
             {
-                KinematicFunction.Tangential => KinematicFunctions.TangentialVelocity,
-                KinematicFunction.Linear => KinematicFunctions.LinearVelocity,
-                KinematicFunction.Exponential => KinematicFunctions.ExponentialVelocity,
-                KinematicFunction.Logarithmic => KinematicFunctions.LogarithmicVelocity,
-                KinematicFunction.Sigmoid => KinematicFunctions.SigmoidVelocity,
+                KinematicFunction.Linear => KinematicFunctions.LinearVelocityNormalized,
+                KinematicFunction.LinearDecay => KinematicFunctions.LinearDecayVelocityNormalized,
+                KinematicFunction.Exponential => KinematicFunctions.ExponentialVelocityNormalized,
+                KinematicFunction.ExponentialDecay => KinematicFunctions.ExponentialDecayVelocityNormalized,
                 _ => throw new ArgumentOutOfRangeException()
             };
-
-            if (_kinematicFunction == KinematicFunctions.TangentialVelocity)
-            {
-                Debug.LogWarning("Kinematic Function: Function result for tangential function are clamped so the velocity will never go over 1.57 * speed");
-            }
         }
 
 
         private void FixedUpdate()
         {
-            int direction = _isGravityFlipped ? 1 : -1;
-            Vector2 rayDirection = direction == 1 ? Vector2.up : Vector2.down;
-            bool grounded = Physics2D.Raycast(transform.position, rayDirection, 1.5f, groundLayer);
-            Debug.DrawRay(transform.position, rayDirection * 1.5f, grounded ? Color.green : Color.red);
-
+            int direction = (int)_gravityDirection;
+            Vector2 rayDirection = new Vector2(0, direction);
+            bool grounded = Physics2D.Raycast(transform.position, rayDirection, rayDistance, groundLayer);
+            // Debug ++
+            Debug.DrawRay(transform.position, rayDirection * rayDistance, grounded ? Color.green : Color.red);
+            // Debug --
             if (!grounded)
             {
-                _rigidbody.linearVelocityY = _kinematicFunction(_time, functionMultiplier, true) * playerSpeed * direction;
+                _rigidbody.linearVelocityY = _kinematicFunction(_time, minSpeed, maxSpeed, timeToReachMaxSpeed, smootherConstant) * direction;
                 _time += Time.fixedDeltaTime;
+            }
+            
+            if (_time > timeToReachMaxSpeed)
+            {
+                _time = timeToReachMaxSpeed;
             }
         }
 
         private void FlipGravity(InputAction.CallbackContext context)
         {
-            _isGravityFlipped = !_isGravityFlipped;
-            _time = 0;
+            // flip gravity direction
+            _gravityDirection = _gravityDirection == GravityDirection.Down ? GravityDirection.Up : GravityDirection.Down;
+            _time = 0; // resets time so that kinematic function starts from 0
         }
         
         
-        // Debug Info++
+        // Debug ++
         private float _lastCollisionTime = -1f;
         private void OnCollisionEnter2D(Collision2D other)
         {
-
-            if (1 << other.gameObject.layer == groundLayer.value)
+            if (1 << other.gameObject.layer != groundLayer.value) return;
+            if (_lastCollisionTime >= 0)
             {
-                if (_lastCollisionTime >= 0)
-                {
-                    float timeBetween = Time.fixedTime - _lastCollisionTime;
-                    Debug.Log($"Time between each collision to wall: {timeBetween}");
-                }
-                _lastCollisionTime = Time.fixedTime;
-                if (manualGravityFlip)
-                {
-                    FlipGravity(new InputAction.CallbackContext());
-                }
+                var timeBetween = Time.fixedTime - _lastCollisionTime;
+                Debug.Log($"Time between each collision to wall: {timeBetween}");
+            }
+            _lastCollisionTime = Time.fixedTime;
+            if (manualGravityFlip)
+            {
+                FlipGravity(new InputAction.CallbackContext());
             }
         }
-        // Debug Info--
+        // Debug --
         
     }
     
     public enum KinematicFunction
     {
-        Tangential,
         Linear,
+        LinearDecay,
         Exponential,
-        Logarithmic,
-        Sigmoid
+        ExponentialDecay
+    }
+    public enum GravityDirection
+    {
+        Up = -1,
+        Down = 1
     }
 }

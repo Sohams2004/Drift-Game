@@ -5,38 +5,32 @@ namespace Gravity
 {
     public static class KinematicFunctions
     {
-        public static float TangentialVelocity(float time,float multiplier, bool isClamped = true)
+        // normalized equation: x * maxSpeed / timeToMaxSpeed
+        public static float LinearVelocityNormalized(float time, float minSpeed, float maxSpeed, float timeToMaxSpeed, float smootherConstant)
         {
-            var value = time * multiplier;
-            if (isClamped)
-                return Mathf.Clamp(value , 0f, Mathf.PI/2f);
-            return MathF.Tan(value);
+            var value = time * maxSpeed / timeToMaxSpeed;
+            return Mathf.Min(Mathf.Max(value, minSpeed), maxSpeed);
         }
         
-        public static float LinearVelocity(float time,float multiplier, bool isClamped = true)
+        // normalized equation: ((-x * maxSpeed) / timeToMaxSpeed) + maxSpeed
+        public static float LinearDecayVelocityNormalized(float time, float minSpeed, float maxSpeed, float timeToMaxSpeed, float smootherConstant)
         {
-            var value = time * multiplier;
-            return value;
+            var value = -(time * maxSpeed / timeToMaxSpeed) + maxSpeed;
+            return Mathf.Min(Mathf.Max(value, minSpeed), maxSpeed);
+        }
+        // normalized equation: maxSpeed * (e^(smootherConstant * x) - 1) / (e^(smootherConstant * timeToMaxSpeed) - 1)
+        public static float ExponentialVelocityNormalized(float time, float minSpeed, float maxSpeed, float timeToMaxSpeed, float smootherConstant = 1f)
+        {
+            var value = maxSpeed * (Mathf.Exp(smootherConstant * time) - 1f) / (Mathf.Exp(smootherConstant * timeToMaxSpeed) - 1f);
+            return Mathf.Min(Mathf.Max(value, minSpeed), maxSpeed);
+            
         }
         
-        public static float ExponentialVelocity(float time,float multiplier, bool isClamped = true)
+        // normalized equation: maxSpeed * (e^(smootherConstant * (timeToMaxSpeed - x)) - 1) / (e^(smootherConstant * timeToMaxSpeed) - 1)
+        public static float ExponentialDecayVelocityNormalized(float time, float minSpeed, float maxSpeed, float timeToMaxSpeed, float smootherConstant = 1f)
         {
-            var value = time * multiplier;
-
-            return Mathf.Exp(value) - 1f;
-        }
-        
-        public static float LogarithmicVelocity(float time,float multiplier, bool isClamped = true)
-        {
-            var value = time * multiplier;
-
-            return Mathf.Log(value + 1f);
-        }
-        public static float SigmoidVelocity(float time,float multiplier, bool isClamped = true)
-        {
-            var value = time * multiplier;
-
-            return 1f / (1f + Mathf.Exp(-value));
+            var value = maxSpeed * (Mathf.Exp(smootherConstant * (timeToMaxSpeed - time)) - 1f) / (Mathf.Exp(smootherConstant * timeToMaxSpeed) - 1f);
+            return Mathf.Min(Mathf.Max(value,minSpeed), maxSpeed);
         }
     }
 }
