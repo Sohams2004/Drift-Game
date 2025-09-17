@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using UnityEngine;
 using InputSystem;
 using UnityEngine.InputSystem;
@@ -14,12 +15,13 @@ namespace Gravity
         [SerializeField] private LayerMask groundLayer;
         
         [Header("Kinematic Settings")]
-        [SerializeField] private KinematicFunction kinematicFunctions = KinematicFunction.Exponential;
+        [SerializeField, InspectorName("Kinematic Function")] private KinematicFunctionNames kinematicFunctionsNames = KinematicFunctionNames.Exponential;
         [SerializeField] private float playerSpeed = 1f;
         [SerializeField] private float minSpeed = 1f;
         [SerializeField] private float maxSpeed = 10f;
         [SerializeField] private float timeToReachMaxSpeed = 1f;
         [SerializeField] private float smootherConstant = 1f;
+        [SerializeField] private float flipCooldown = 0.5f;
         private Func<float,float,float,float,float,float> _kinematicFunction;
         
         [Header("Debug Settings")]
@@ -70,25 +72,26 @@ namespace Gravity
         private void GetKinematicFunction()
         {
             // convert enum to function
-            _kinematicFunction = kinematicFunctions switch
+            _kinematicFunction = kinematicFunctionsNames switch
             {
-                KinematicFunction.Linear => KinematicFunctions.LinearVelocityNormalized,
-                KinematicFunction.LinearDecay => KinematicFunctions.LinearDecayVelocityNormalized,
-                KinematicFunction.Exponential => KinematicFunctions.ExponentialVelocityNormalized,
-                KinematicFunction.ExponentialDecay => KinematicFunctions.ExponentialDecayVelocityNormalized,
+                KinematicFunctionNames.Linear => KinematicFunctions.LinearVelocityNormalized,
+                KinematicFunctionNames.LinearDecay => KinematicFunctions.LinearDecayVelocityNormalized,
+                KinematicFunctionNames.Exponential => KinematicFunctions.ExponentialVelocityNormalized,
+                KinematicFunctionNames.ExponentialDecay => KinematicFunctions.ExponentialDecayVelocityNormalized,
                 _ => throw new ArgumentOutOfRangeException()
             };
         }
 
-
+        private bool _canFlip = true;
+        private bool _flipRequestedDuringCooldown = false;
         private void FixedUpdate()
         {
             int direction = (int)_gravityDirection;
             Vector2 rayDirection = new Vector2(0, direction);
             bool grounded = Physics2D.Raycast(transform.position, rayDirection, rayDistance, groundLayer);
-            // Debug ++
+            // debug+
             Debug.DrawRay(transform.position, rayDirection * rayDistance, grounded ? Color.green : Color.red);
-            // Debug --
+            // debug-
             if (!grounded)
             {
                 _rigidbody.linearVelocityY = _kinematicFunction(_time, minSpeed, maxSpeed, timeToReachMaxSpeed, smootherConstant) * direction;
@@ -101,15 +104,42 @@ namespace Gravity
             }
         }
 
-        private void FlipGravity(InputAction.CallbackContext context)
+        private void PerformFlip()
         {
             // flip gravity direction
             _gravityDirection = _gravityDirection == GravityDirection.Down ? GravityDirection.Up : GravityDirection.Down;
             _time = 0; // resets time so that kinematic function starts from 0
         }
+        private IEnumerator CoolDownFlipCoroutine()
+        {
+            yield return new WaitForSeconds(flipCooldown);
+            _canFlip = true;
+            if (_flipRequestedDuringCooldown)
+            {
+                PerformFlip();
+                _flipRequestedDuringCooldown = false;
+                _canFlip = false;
+                StartCoroutine(CoolDownFlipCoroutine());
+            }
+                
+        }
+
+        private void FlipGravity(InputAction.CallbackContext context)
+        {
+            if (_canFlip)
+            {
+                PerformFlip();
+                _canFlip = false;
+                StartCoroutine(CoolDownFlipCoroutine());
+            }
+            else
+            {
+                _flipRequestedDuringCooldown = true;
+            }
+        }
         
         
-        // Debug ++
+        // debug+
         private float _lastCollisionTime = -1f;
         private void OnCollisionEnter2D(Collision2D other)
         {
@@ -125,11 +155,11 @@ namespace Gravity
                 FlipGravity(new InputAction.CallbackContext());
             }
         }
-        // Debug --
+        // debug-
         
     }
     
-    public enum KinematicFunction
+    public enum KinematicFunctionNames
     {
         Linear,
         LinearDecay,

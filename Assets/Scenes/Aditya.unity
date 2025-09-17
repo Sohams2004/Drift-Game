@@ -700,15 +700,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 01c9bbdbdf15b3640af24072d702583b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::VerticalSpeedController
-  rayDist: 1.5
+  rayDistance: 1.5
   groundLayer:
     serializedVersion: 2
     m_Bits: 64
-  kinematicFunctions: 1
+  kinematicFunctions: 0
   playerSpeed: 1
-  functionMultiplier: 1.6
+  minSpeed: 1
   maxSpeed: 10
-  timeToReachMaxSpeed: 1
+  timeToReachMaxSpeed: 1.5
+  smootherConstant: 1
   manualGravityFlip: 0
 --- !u!70 &536617737
 CapsuleCollider2D:
