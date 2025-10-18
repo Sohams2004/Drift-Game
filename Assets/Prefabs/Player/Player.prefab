@@ -69,7 +69,7 @@ Camera:
   far clip plane: 1000
   field of view: 60
   orthographic: 1
-  orthographic size: 5
+  orthographic size: 10
   m_Depth: -1
   m_CullingMask:
     serializedVersion: 2
@@ -313,12 +313,12 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 64
   kinematicFunctionsNames: 2
-  playerSpeed: 1
+  playerSpeed: 2
   minSpeed: 1
-  maxSpeed: 10
-  timeToReachMaxSpeed: 1.5
+  maxSpeed: 40
+  timeToReachMaxSpeed: 0.5
   smootherConstant: 1
-  flipCooldown: 0.5
+  flipCooldown: 0.4
   manualGravityFlip: 0
 --- !u!114 &1565645224680482663
 MonoBehaviour:
@@ -332,4 +332,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 21ae5808245010943a98adef7e2e91db, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HorizontalSpeed
-  playerSpeed: 2
+  playerSpeed: 5
